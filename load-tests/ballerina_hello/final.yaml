@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ballerina_hello
+  name: ballerina-hello
+spec:
+  ports:
+  - name: port-1-ballerin
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: ballerina_hello
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ballerina_hello
+  name: ballerina-hello-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ballerina_hello
+  template:
+    metadata:
+      labels:
+        app: ballerina_hello
+    spec:
+      containers:
+      - image: ballerina/ballerina_hello:latest
+        imagePullPolicy: Always
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - sleep
+              - "15"
+        name: ballerina-hello-deployment
+        ports:
+        - containerPort: 9090
+          name: port-1-ballerin
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+          requests:
+            cpu: 200m
+            memory: 256Mi
+      nodeSelector: {}
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: ballerina_hello
+  name: ballerina-hello
+spec:
+  maxReplicas: 1
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ballerina-hello-deployment
+  targetCPUUtilizationPercentage: 50
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  name: ballerina-hello
+spec:
+  rules:
+  - host: bal.perf.test
+    http:
+      paths:
+      - backend:
+          service:
+            name: ballerina-hello
+            port:
+              number: 9090
+        path: /
+        pathType: Prefix
